@@ -6,6 +6,8 @@
   different ways to use those datasets, you will use the web UI (BiqQuery) and
   the command-line tools, and work with them in Jupyter Notebooks.
 
+A really great answer
+
 #### Problem Statement
 
 - You're a data scientist at Lyft Bay Wheels (https://www.lyft.com/bikes/bay-wheels), formerly known as Ford GoBike, the
