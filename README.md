@@ -6,8 +6,6 @@
   different ways to use those datasets, you will use the web UI (BiqQuery) and
   the command-line tools, and work with them in Jupyter Notebooks.
 
-A really great answer
-
 #### Problem Statement
 
 - You're a data scientist at Lyft Bay Wheels (https://www.lyft.com/bikes/bay-wheels), formerly known as Ford GoBike, the
@@ -128,25 +126,99 @@ Paste your SQL query and answer the question in a sentence.  Be sure you properl
 
 - What's the size of this dataset? (i.e., how many trips)
 
+```
+SELECT COUNT(*)
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips`
+```
+
+We use the bikeshare_trips to find the total number of trips in the dataset, which is 983648.
+ 
 - What is the earliest start date and time and latest end date and time for a trip?
+
+```
+SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+```
+
+The earliest start date and time for a trip is is 2013-08-29 09:08:00 UTC, and the latest end date and time for a trip is 2016-08-31 23:48:00 UTC.
 
 - How many bikes are there?
 
+```
+SELECT COUNT(DISTINCT bike_number)
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+```
+
+The best guess for the number of bikes is based on the bike ID, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
+
+#What's the size of this dataset? OR use bikeshare_trips -- explain
+#SELECT COUNT(*) FROM `bigquery-public-data.san_francisco.bikeshare_status`;
+
+#How many stations there are
+#SELECT COUNT(DISTINCT station_id) FROM `bigquery-public-data.san_francisco.bikeshare_status`
+
+#Calculate the number of days/months between them
+#SELECT min(time), max(time) FROM `bigquery-public-data.san_francisco.bikeshare_status`
+
+#How many bikes does station 90 have? Max capacity
+#SELECT station_id, max(bikes_available + docks_available) FROM `bigquery-#public-data.san trip_id _francisco.bikeshare_status`
+#WHERE station_id = 90
+#GROUP BY station_id;
+
+#SELECT * FROM `bigquery-public-data.san_francisco.bikeshare_trips`
+#WHERE duration_sec = (SELECT min(duration_sec) FROM `bigquery-public-data.san_francisco.bikeshare_trips`)
 
 ### Questions of your own
 - Make up 3 questions and answer them using the Bay Area Bike Share Trips Data.  These questions MUST be different than any of the questions and queries you ran above.
 
-- Question 1: 
+- Question 1: How many bikeshare trips started at a different station than where they began (possibly signaling a commuter trip)?
+  * Answer: Out of the 983648 trips, 951601 ended at a different station than where they began, which is a vast majority.
+  * SQL query:
+
+```
+SELECT COUNT(*)
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+WHERE start_station_name != end_station_name
+```
+
+- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST? These could signify the majory of weekday commuters.
+  * Answer: There are 86478, or less than 10% of trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data.
+  * SQL query:
+
+```
+SELECT COUNT(*)
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+WHERE EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
+AND (EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 7 AND 8
+    OR EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 16 AND 17
+```
+
+- Question 3: We first define roundtrips as 2 trips taken by the same individual on the same day, where the starting station of the earlier trip is the same as the end station of the later trip, and the end station of the earlier trip is the start station of the later trip, but the starting station of the earlier trip is not the end station of the earlier trip. For weekday roundtrips where the first trip begins between 7am and 8:59am, and the second trip begins between 4pm and 5:59pm, what are the names of the top 5 most frequent pairs of stations (order matters) taken by individual(s) from the same zip code, and how many times does each pair occur?
+
   * Answer:
   * SQL query:
 
-- Question 2:
-  * Answer:
-  * SQL query:
-
-- Question 3:
-  * Answer:
-  * SQL query:
+```
+SELECT morning_start, morning_end, afternoon_start, afternoon_end, COUNT(*) total_trips
+FROM
+(SELECT start_station_name morning_start, end_station_name morning_end, zip_code morning_zip
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+WHERE start_station_name != end_station_name
+AND EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
+AND EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 7 AND 8) morning_trip
+JOIN
+(SELECT start_station_name afternoon_start, end_station_name afternoon_end, zip_code afternoon_zip
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+WHERE start_station_name != end_station_name
+AND EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
+AND EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 16 AND 17) afternoon_trip
+ON morning_trip.morning_start = afternoon_trip.afternoon_end
+AND morning_trip.morning_end = afternoon_trip.afternoon_start 
+AND morning_trip.morning_zip = afternoon_trip.afternoon_zip
+GROUP BY morning_start, morning_end, afternoon_start, afternoon_end
+ORDER BY total_trips DESC
+LIMIT 5
+```
 
 ### Bonus activity queries (optional - not graded - just this section is optional, all other sections are required)
 
