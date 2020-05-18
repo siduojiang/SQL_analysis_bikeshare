@@ -181,7 +181,7 @@ SELECT COUNT(*)
 WHERE start_station_name != end_station_name
 ```
 
-- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST? These could signify the majory of weekday commuters.
+- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or begins between 4pm and 5:59pm, PST? These could signify the majority of weekday commuters traveling to and from work.
   * Answer: There are 86478, or less than 10% of trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data.
   * SQL query:
 
@@ -193,30 +193,26 @@ AND (EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 7 
     OR EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 16 AND 17
 ```
 
-- Question 3: We first define roundtrips as 2 trips taken by the same individual on the same day, where the starting station of the earlier trip is the same as the end station of the later trip, and the end station of the earlier trip is the start station of the later trip, but the starting station of the earlier trip is not the end station of the earlier trip. For weekday roundtrips where the first trip begins between 7am and 8:59am, and the second trip begins between 4pm and 5:59pm, what are the names of the top 5 most frequent pairs of stations (order matters) taken by individual(s) from the same zip code, and how many times does each pair occur?
+- Question 3: What are the top 5 pairs of stations for which median trip duration is the longest? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
 
   * Answer:
-  * SQL query:
-
+  
+| station\_1                            | station\_2                           | average\_duration |
+|---------------------------------------|--------------------------------------|-------------------|
+| Rengstorff Avenue / California Street | Japantown                            | 10544\.0          |
+| Mezes                                 | Charleston Park/ North Bayshore Area | 9517\.0           |
+| San Antonio Caltrain Station          | Franklin at Maple                    | 9493\.0           |
+| San Jose Civic Center                 | Mountain View Caltrain Station       | 8939\.25          |
+| Paseo de San Antonio                  | Market at 4th                        | 7798\.0           |
+  
+  * SQL query: What are the top 5 pairs of stations for which median trip duration is the longest, no including roundtrips? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
 ```
-SELECT morning_start, morning_end, afternoon_start, afternoon_end, COUNT(*) total_trips
-FROM
-(SELECT start_station_name morning_start, end_station_name morning_end, zip_code morning_zip
+SELECT MIN(start_station_name) station_1, MAX(end_station_name) station_2, AVG(duration_sec) average_duration
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE start_station_name != end_station_name
-AND EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
-AND EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 7 AND 8) morning_trip
-JOIN
-(SELECT start_station_name afternoon_start, end_station_name afternoon_end, zip_code afternoon_zip
-  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE start_station_name != end_station_name
-AND EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
-AND EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 16 AND 17) afternoon_trip
-ON morning_trip.morning_start = afternoon_trip.afternoon_end
-AND morning_trip.morning_end = afternoon_trip.afternoon_start 
-AND morning_trip.morning_zip = afternoon_trip.afternoon_zip
-GROUP BY morning_start, morning_end, afternoon_start, afternoon_end
-ORDER BY total_trips DESC
+  WHERE duration_sec BETWEEN 300 AND 10800
+    AND start_station_id != end_station_id
+GROUP By LEAST(start_station_id, end_station_id ) || '_' || GREATEST(start_station_id, end_station_id)
+ORDER BY average_duration DESC
 LIMIT 5
 ```
 
