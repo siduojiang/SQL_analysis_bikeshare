@@ -231,11 +231,132 @@ from `bigquery-public-data.san_francisco_bikeshare.bikeshare_station_info`
 
 - Top 5 popular station pairs in each region
 
+```
+SELECT station_pair, region, station_pair_num_trips
+FROM
+  (SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY station_pair_num_trips DESC) r, 
+  FROM
+    (SELECT LEAST(trips.start_station_name) || ', ' || GREATEST(trips.end_station_name) station_pair, regions_1.region_id region, COUNT(*) station_pair_num_trips
+      FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_1
+      ON trips.start_station_id = regions_1.station_id
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_2
+      ON trips.end_station_id  = regions_2.station_id
+    WHERE regions_1.region_id = regions_2.region_id
+    GROUP BY 1, 2
+    ORDER BY 3 DESC) t1) t2
+  WHERE r <= 5
+```
+
+| station\_pair                                                     | region | station\_pair\_num\_trips |
+|-------------------------------------------------------------------|--------|---------------------------|
+| Harry Bridges Plaza \(Ferry Building\), Embarcadero at Sansome    | 3      | 9150                      |
+| 2nd at Townsend, Harry Bridges Plaza \(Ferry Building\)           | 3      | 7620                      |
+| Harry Bridges Plaza \(Ferry Building\), 2nd at Townsend           | 3      | 6888                      |
+| Embarcadero at Sansome, Steuart at Market                         | 3      | 6874                      |
+| Embarcadero at Folsom, San Francisco Caltrain \(Townsend at 4th\) | 3      | 6351                      |
+| University and Emerson, University and Emerson                    | 5      | 1184                      |
+| Washington at Kearny, Washington at Kearny                        | 12     | 314                       |
+| Paseo de San Antonio, Paseo de San Antonio                        | 12     | 204                       |
+| Washington at Kearney, Washington at Kearney                      | 12     | 89                        |
+
+
 - Top 3 most popular regions(stations belong within 1 region)
+
+```
+SELECT region, COUNT(*) num_trips
+FROM
+(SELECT regions_1.region_id region
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+  JOIN `round-ring-276215.bikeshare_views.region_station` regions_1
+  ON trips.start_station_id = regions_1.station_id
+UNION ALL
+SELECT regions_2.region_id region
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+  JOIN `round-ring-276215.bikeshare_views.region_station` regions_2
+  ON trips.end_station_id = regions_2.station_id)
+GROUP BY region
+ORDER BY 2 DESC
+```
+
+| region | num\_trips |
+|--------|------------|
+| 3      | 1492263    |
+| 12     | 25534      |
+| 5      | 4353       |
+
 
 - Total trips for each short station name in each region
 
+```
+SELECT station_name, COUNT(*) num_trips
+FROM
+(SELECT trips.start_station_name station_name
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+UNION ALL
+SELECT trips.end_station_name station_name 
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips)
+GROUP BY station_name
+ORDER BY num_trips DESC
+```
+
 - What are the top 10 used bikes in each of the top 3 region. these bikes could be in need of more frequent maintenance.
+
+```
+SELECT bike_number, region, num_uses
+FROM
+  (SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY num_uses DESC) r
+    FROM
+    (SELECT bike_number, region, COUNT(*) num_uses 
+    FROM
+    (SELECT trips.bike_number, regions_1.region_id region
+      FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_1
+      ON trips.start_station_id = regions_1.station_id
+      WHERE region_id IN (3, 5, 12)
+    UNION ALL
+    SELECT trips.bike_number, regions_2.region_id region
+      FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_2
+      ON trips.end_station_id = regions_2.station_id
+      WHERE region_id IN (3, 5, 12))
+  GROUP BY bike_number, region))
+WHERE r <= 10
+```
+
+| bike\_number | region | num\_uses |
+|--------------|--------|-----------|
+| 389          | 3      | 4418      |
+| 524          | 3      | 4372      |
+| 631          | 3      | 4350      |
+| 392          | 3      | 4323      |
+| 328          | 3      | 4307      |
+| 585          | 3      | 4303      |
+| 558          | 3      | 4301      |
+| 287          | 3      | 4291      |
+| 503          | 3      | 4266      |
+| 592          | 3      | 4264      |
+| 165          | 5      | 60        |
+| 638          | 5      | 55        |
+| 120          | 5      | 54        |
+| 71           | 5      | 51        |
+| 307          | 5      | 50        |
+| 20           | 5      | 48        |
+| 83           | 5      | 48        |
+| 9            | 5      | 47        |
+| 201          | 5      | 47        |
+| 160          | 5      | 45        |
+| 328          | 12     | 87        |
+| 275          | 12     | 85        |
+| 353          | 12     | 83        |
+| 480          | 12     | 80        |
+| 388          | 12     | 79        |
+| 340          | 12     | 79        |
+| 284          | 12     | 78        |
+| 99           | 12     | 77        |
+| 489          | 12     | 77        |
+| 487          | 12     | 76        |
+
 
 ---
 
