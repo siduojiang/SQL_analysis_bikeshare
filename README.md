@@ -480,6 +480,8 @@ my_panda_data_frame
   
   * What are your recommendations for offers (justify based on your findings)?
 
+Also stations with least traffic and stations with most bikes ... which stations have the most bikes?
+
 - For any temporary tables (or views) that you created, include the SQL in markdown cells
 
 - Use code cells for SQL you ran to load into Pandas, either using the !bq or the magic commands
