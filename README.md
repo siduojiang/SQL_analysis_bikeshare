@@ -151,75 +151,110 @@ SELECT COUNT(DISTINCT bike_number)
 
 The best guess for the number of bikes is based on the bike ID, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
 
-#What's the size of this dataset? OR use bikeshare_trips -- explain
-#SELECT COUNT(*) FROM `bigquery-public-data.san_francisco.bikeshare_status`;
-
-#How many stations there are
-#SELECT COUNT(DISTINCT station_id) FROM `bigquery-public-data.san_francisco.bikeshare_status`
-
-#Calculate the number of days/months between them
-#SELECT min(time), max(time) FROM `bigquery-public-data.san_francisco.bikeshare_status`
-
-#How many bikes does station 90 have? Max capacity
-#SELECT station_id, max(bikes_available + docks_available) FROM `bigquery-#public-data.san trip_id _francisco.bikeshare_status`
-#WHERE station_id = 90
-#GROUP BY station_id;
-
-#SELECT * FROM `bigquery-public-data.san_francisco.bikeshare_trips`
-#WHERE duration_sec = (SELECT min(duration_sec) FROM `bigquery-public-data.san_francisco.bikeshare_trips`)
 
 ### Questions of your own
 - Make up 3 questions and answer them using the Bay Area Bike Share Trips Data.  These questions MUST be different than any of the questions and queries you ran above.
 
-- Question 1: How many bikeshare trips started at a different station than where they began (possibly signaling a commuter trip)?
-  * Answer: Out of the 983648 trips, 951601 ended at a different station than where they began, which is a vast majority.
+- Question 1: Based on station id and name from the bikeshare_stations table, which start and end stations in the bikeshare_trips table have different names when joined by station id? How many occurrences are there for each distinct difference, and is the mismatch potentially something of concern about the dataset?
+
+  * Answer: There are 12 distinct entries where the start station name from the trips table is different than the station name in the station table when joined based on station id. For the end station name, there were also 12 distinct entries, with names and number of occurrences (trips) listed below:
+
+Start station differences:
+| station\_id | start\_station\_name                  | name                                 | num\_trips |
+|-------------|---------------------------------------|--------------------------------------|------------|
+| 47          | Post at Kearny                        | Post at Kearney                      | 11308      |
+| 46          | Washington at Kearny                  | Washington at Kearney                | 7136       |
+| 30          | Evelyn Park and Ride                  | Middlefield Light Rail Station       | 1738       |
+| 33          | Rengstorff Avenue / California Street | Charleston Park/ North Bayshore Area | 1171       |
+| 26          | Kaiser Hospital                       | Redwood City Medical Center          | 147        |
+| 83          | Mezes                                 | Mezes Park                           | 119        |
+| 89          | S\. Market St at Park Ave             | S\. Market st at Park Ave            | 84         |
+| 25          | Broadway at Main                      | Stanford in Redwood City             | 67         |
+| 80          | San Jose Government Center            | Santa Clara County Civic Center      | 23         |
+| 88          | 5th S at E\. San Salvador St          | 5th S\. at E\. San Salvador St       | 19         |
+| 21          | Sequoia Hospital                      | Franklin at Maple                    | 15         |
+| 88          | 5th St at E\. San Salvador St         | 5th S\. at E\. San Salvador St       | 1          |
+
+
+End station differences:
+| station\_id | end\_station\_name                    | name                                 | num\_trips |
+|-------------|---------------------------------------|--------------------------------------|------------|
+| 47          | Post at Kearny                        | Post at Kearney                      | 11201      |
+| 46          | Washington at Kearny                  | Washington at Kearney                | 8654       |
+| 30          | Evelyn Park and Ride                  | Middlefield Light Rail Station       | 1446       |
+| 33          | Rengstorff Avenue / California Street | Charleston Park/ North Bayshore Area | 1123       |
+| 83          | Mezes                                 | Mezes Park                           | 114        |
+| 26          | Kaiser Hospital                       | Redwood City Medical Center          | 108        |
+| 89          | S\. Market St at Park Ave             | S\. Market st at Park Ave            | 103        |
+| 25          | Broadway at Main                      | Stanford in Redwood City             | 81         |
+| 88          | 5th S at E\. San Salvador St          | 5th S\. at E\. San Salvador St       | 24         |
+| 80          | San Jose Government Center            | Santa Clara County Civic Center      | 23         |
+| 21          | Sequoia Hospital                      | Franklin at Maple                    | 14         |
+| 88          | 5th St at E\. San Salvador St         | 5th S\. at E\. San Salvador St       | 1          |
+
+First of all, the start station/end station names differ from the stations table in the exact same station ids. Based on the differences above, many of them appear to be misspellings, such as "Kearny" in the trips table vs "Kearney" in the stations table, or the trips table calling "Mezes Part" simply as "Mezes". Since these likely do not represent different locations, these are of no concern for the integrity of the data for analysis, although better normalization of the dataset would be sensible. Some pairs have different names that represent the same location based on Google Map searches. These could be two landmark points in the same area, or different names for the same complex. This includes "Evelyn Park and Ride" vs "Middlefield Light Rail Station", "Kaiser Hospital" vs "Redwood City Medical Center", "San Jose Government Center" and "Santa Clara County Civic Center". The only suspicious pair is "Rengstorff Avenue / California Street" and "Charleston Park", which according to Google Maps is a 12 minute bike ride from each other. However, likely a single bikeshare station (id:33) serves both areas. The conclusion is that as long as work with the station id table, the data seems to have no issues in terms of start/end locations.
+
+  * SQL query:
+
+Stations where start station name from trips table differs from stations table
+```
+SELECT stations.station_id, trips.start_station_name, stations.name, COUNT(*) num_trips
+FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+    JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations
+    ON trips.start_station_id = stations.station_id
+WHERE stations.name != trips.start_station_name
+GROUP BY stations.station_id, trips.start_station_name, stations.name
+ORDER BY num_trips DESC;
+```
+
+Stations where end station name from trips table differs from stations table
+```
+SELECT stations.station_id, trips.end_station_name, stations.name, COUNT(*) num_trips
+FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+    JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations
+    ON trips.end_station_id = stations.station_id
+WHERE stations.name != trips.end_station_name
+GROUP BY stations.station_id, trips.end_station_name, stations.name
+ORDER BY num_trips DESC
+```
+
+- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST, where the start and end stations are different? These could signify the majory of weekday commuters.
+  * Answer: First, we note that the times are already local PST based on the table schema (despite the table itself saying UTC). There are 387926, or about 39.4% of total trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data. However, since we are only covering a 4 hour window each day for 5 days (20 hours total versus 168 hours per week), proportionally speaking a large fraction of trips are taken within this window.
+  
   * SQL query:
 
 ```
 SELECT COUNT(*)
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE start_station_name != end_station_name
+WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
+AND (EXTRACT(HOUR FROM start_date) BETWEEN 7 AND 8
+    OR EXTRACT(HOUR FROM start_date) BETWEEN 16 AND 17)
+AND start_station_id != end_station_id
 ```
 
-- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST? These could signify the majory of weekday commuters.
-  * Answer: There are 86478, or less than 10% of trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data.
+- Question 3: For the two different subscriber types, what percent of trips for each type are intercity (start station and end station are in different cities)?
+
+  * Answer: For "Customers", 0.522% of trips are intercity, whereas only 0.087% trips are intercity for "Subscribers", which means Customers take intercity trips 6 times more often than Subscribers. Commuter trips are less likely to be intercity, so this combined with trip duration could help us narrow down which trips are commuter. However, the number of intercity trips represents such a small fraction of total trips that such analysis may not be impactful on the analysis.
+  
   * SQL query:
 
 ```
-SELECT COUNT(*)
-  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
-AND (EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 7 AND 8
-    OR EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 16 AND 17
-```
-
-- Question 3: We first define roundtrips as 2 trips taken by the same individual on the same day, where the starting station of the earlier trip is the same as the end station of the later trip, and the end station of the earlier trip is the start station of the later trip, but the starting station of the earlier trip is not the end station of the earlier trip. For weekday roundtrips where the first trip begins between 7am and 8:59am, and the second trip begins between 4pm and 5:59pm, what are the names of the top 5 most frequent pairs of stations (order matters) taken by individual(s) from the same zip code, and how many times does each pair occur?
-
-  * Answer:
-  * SQL query:
-
-```
-SELECT morning_start, morning_end, afternoon_start, afternoon_end, COUNT(*) total_trips
+SELECT ROUND(num_trips / total_trips * 100, 3) intercity_trips_pct, t1.subscriber_type
 FROM
-(SELECT start_station_name morning_start, end_station_name morning_end, zip_code morning_zip
-  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE start_station_name != end_station_name
-AND EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
-AND EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 7 AND 8) morning_trip
+  (SELECT COUNT(*) num_trips, subscriber_type
+   FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_1
+      ON trips.start_station_id = stations_1.station_id
+      JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_2
+      ON trips.end_station_id = stations_2.station_id
+    WHERE stations_1.landmark != stations_2.landmark
+    GROUP BY subscriber_type) t1
 JOIN
-(SELECT start_station_name afternoon_start, end_station_name afternoon_end, zip_code afternoon_zip
-  FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE start_station_name != end_station_name
-AND EXTRACT(DAYOFWEEK FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 2 AND 6
-AND EXTRACT(HOUR FROM start_date AT TIME ZONE "America/Los_Angeles") BETWEEN 16 AND 17) afternoon_trip
-ON morning_trip.morning_start = afternoon_trip.afternoon_end
-AND morning_trip.morning_end = afternoon_trip.afternoon_start 
-AND morning_trip.morning_zip = afternoon_trip.afternoon_zip
-GROUP BY morning_start, morning_end, afternoon_start, afternoon_end
-ORDER BY total_trips DESC
-LIMIT 5
+    (SELECT subscriber_type, COUNT(*) total_trips
+     FROM `bigquery-public-data.san_francisco.bikeshare_trips`
+     GROUP BY subscriber_type) t2
+ON t1.subscriber_type = t2.subscriber_type
 ```
-
 ### Bonus activity queries (optional - not graded - just this section is optional, all other sections are required)
 
 The bike share dynamic dataset offers multiple tables that can be joined to learn more interesting facts about the bike share business across all regions. These advanced queries are designed to challenge you to explore the other tables, using only the available metadata to create views that give you a broader understanding of the overall volumes across the regions(each region has multiple stations)
@@ -235,11 +270,131 @@ from `bigquery-public-data.san_francisco_bikeshare.bikeshare_station_info`
 
 - Top 5 popular station pairs in each region
 
+```
+SELECT station_pair, region, station_pair_num_trips
+FROM
+  (SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY station_pair_num_trips DESC) r, 
+  FROM
+    (SELECT LEAST(trips.start_station_name) || ', ' || GREATEST(trips.end_station_name) station_pair, regions_1.region_id region, COUNT(*) station_pair_num_trips
+      FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_1
+      ON trips.start_station_id = regions_1.station_id
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_2
+      ON trips.end_station_id  = regions_2.station_id
+    WHERE regions_1.region_id = regions_2.region_id
+    GROUP BY 1, 2
+    ORDER BY 3 DESC) t1) t2
+  WHERE r <= 5
+```
+
+| station\_pair                                                     | region | station\_pair\_num\_trips |
+|-------------------------------------------------------------------|--------|---------------------------|
+| Harry Bridges Plaza \(Ferry Building\), Embarcadero at Sansome    | 3      | 9150                      |
+| 2nd at Townsend, Harry Bridges Plaza \(Ferry Building\)           | 3      | 7620                      |
+| Harry Bridges Plaza \(Ferry Building\), 2nd at Townsend           | 3      | 6888                      |
+| Embarcadero at Sansome, Steuart at Market                         | 3      | 6874                      |
+| Embarcadero at Folsom, San Francisco Caltrain \(Townsend at 4th\) | 3      | 6351                      |
+| University and Emerson, University and Emerson                    | 5      | 1184                      |
+| Washington at Kearny, Washington at Kearny                        | 12     | 314                       |
+| Paseo de San Antonio, Paseo de San Antonio                        | 12     | 204                       |
+| Washington at Kearney, Washington at Kearney                      | 12     | 89                        |
+
+
 - Top 3 most popular regions(stations belong within 1 region)
+
+```
+SELECT region, COUNT(*) num_trips
+FROM
+(SELECT regions_1.region_id region
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+  JOIN `round-ring-276215.bikeshare_views.region_station` regions_1
+  ON trips.start_station_id = regions_1.station_id
+UNION ALL
+SELECT regions_2.region_id region
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+  JOIN `round-ring-276215.bikeshare_views.region_station` regions_2
+  ON trips.end_station_id = regions_2.station_id)
+GROUP BY region
+ORDER BY 2 DESC
+```
+
+| region | num\_trips |
+|--------|------------|
+| 3      | 1492263    |
+| 12     | 25534      |
+| 5      | 4353       |
+
 
 - Total trips for each short station name in each region
 
+```
+SELECT station_name, COUNT(*) num_trips
+FROM
+(SELECT trips.start_station_name station_name
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+UNION ALL
+SELECT trips.end_station_name station_name 
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips)
+GROUP BY station_name
+ORDER BY num_trips DESC
+```
+
 - What are the top 10 used bikes in each of the top 3 region. these bikes could be in need of more frequent maintenance.
+
+```
+SELECT bike_number, region, num_uses
+FROM
+  (SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY num_uses DESC) r
+    FROM
+    (SELECT bike_number, region, COUNT(*) num_uses 
+    FROM
+    (SELECT trips.bike_number, regions_1.region_id region
+      FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_1
+      ON trips.start_station_id = regions_1.station_id
+      WHERE region_id IN (3, 5, 12)
+    UNION ALL
+    SELECT trips.bike_number, regions_2.region_id region
+      FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+      JOIN `round-ring-276215.bikeshare_views.region_station` regions_2
+      ON trips.end_station_id = regions_2.station_id
+      WHERE region_id IN (3, 5, 12))
+  GROUP BY bike_number, region))
+WHERE r <= 10
+```
+
+| bike\_number | region | num\_uses |
+|--------------|--------|-----------|
+| 389          | 3      | 4418      |
+| 524          | 3      | 4372      |
+| 631          | 3      | 4350      |
+| 392          | 3      | 4323      |
+| 328          | 3      | 4307      |
+| 585          | 3      | 4303      |
+| 558          | 3      | 4301      |
+| 287          | 3      | 4291      |
+| 503          | 3      | 4266      |
+| 592          | 3      | 4264      |
+| 165          | 5      | 60        |
+| 638          | 5      | 55        |
+| 120          | 5      | 54        |
+| 71           | 5      | 51        |
+| 307          | 5      | 50        |
+| 20           | 5      | 48        |
+| 83           | 5      | 48        |
+| 9            | 5      | 47        |
+| 201          | 5      | 47        |
+| 160          | 5      | 45        |
+| 328          | 12     | 87        |
+| 275          | 12     | 85        |
+| 353          | 12     | 83        |
+| 480          | 12     | 80        |
+| 388          | 12     | 79        |
+| 340          | 12     | 79        |
+| 284          | 12     | 78        |
+| 99           | 12     | 77        |
+| 489          | 12     | 77        |
+| 487          | 12     | 76        |
 
 ---
 
@@ -275,6 +430,13 @@ from `bigquery-public-data.san_francisco_bikeshare.bikeshare_station_info`
 ### Project Questions
 Identify the main questions you'll need to answer to make recommendations (list
 below, add as many questions as you need).
+
+Start and end stations are different
+Start windows
+Subscriber type
+Total duration of trip less than some reasonable time
+Workdays only and not holidays and weekends
+
 
 - Question 1: 
 
