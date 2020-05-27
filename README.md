@@ -254,6 +254,7 @@ JOIN
      FROM `bigquery-public-data.san_francisco.bikeshare_trips`
      GROUP BY subscriber_type) t2
 ON t1.subscriber_type = t2.subscriber_type
+
 ```
 ### Bonus activity queries (optional - not graded - just this section is optional, all other sections are required)
 
@@ -396,7 +397,6 @@ WHERE r <= 10
 | 489          | 12     | 77        |
 | 487          | 12     | 76        |
 
----
 
 ## Part 2 - Querying data from the BigQuery CLI 
 
@@ -524,6 +524,8 @@ my_panda_data_frame
   * What are the 5 most popular trips that you would call "commuter trips"? 
   
   * What are your recommendations for offers (justify based on your findings)?
+
+Also stations with least traffic and stations with most bikes ... which stations have the most bikes?
 
 - For any temporary tables (or views) that you created, include the SQL in markdown cells
 
