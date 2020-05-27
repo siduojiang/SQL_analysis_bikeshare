@@ -418,14 +418,64 @@ WHERE r <= 10
 
   * What's the size of this dataset? (i.e., how many trips)
 
+  ```
+  bq query --use_legacy_sql=false 'SELECT COUNT(*) dataset_size FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
+  ```
+
+| dataset\_size |
+|---------------|
+| 983648        |          
+  
+
   * What is the earliest start time and latest end time for a trip?
 
+  ```
+  bq query --use_legacy_sql=false 'SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
+    FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
+  ```
+
+| earliest\_start\_date | latest\_end\_date   |
+|-----------------------|---------------------|
+| 2013-08-29 09:08:00   | 2016-08-31 23:48:00 |
+  
   * How many bikes are there?
+
+  ```
+  bq query --use_legacy_sql=false 'SELECT COUNT(DISTINCT bike_number) num_bikes
+     FROM `bigquery-public-data.san_francisco.bikeshare_trips`' 
+  ```
+
+| num\_bikes |
+|------------|
+| 700        |
 
 2. New Query (Run using bq and paste your SQL query and answer the question in a sentence, using properly formatted markdown):
 
   * How many trips are in the morning vs in the afternoon?
 
+In this problem, I will define morning hours as between 6am and 12pm, and afternoon hours as between 12pm and 7pm. In order to define morning and afternoon trips, we will consider a trip a morning trip if it begins and ends in the morning of the same day, and an afternoon trip as beginning and ending in the afternoon of the same day. We want to exclude multi-day bike checkouts because we do not know for sure when the bike was actually used during that period. We also exclude trips that say begin in the morning but end in the afternoon of the same day, because that is neither a morning nor afternoon trip (it is more of a just daytime trip). Note that the timestamps are already in PST as defined by the schema.
+
+```
+bq query --use_legacy_sql=false 'SELECT COUNT(*) num_trips, 
+  CASE WHEN (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 12 
+        AND EXTRACT(HOUR FROM end_date) BETWEEN 6 AND 12) THEN "morning"
+       WHEN (EXTRACT(HOUR FROM start_date) BETWEEN 12 AND 19 
+        AND EXTRACT(HOUR FROM end_date) BETWEEN 12 AND 19) THEN "afternoon"
+       ELSE "neither"
+  END morning_afternoon
+FROM
+(SELECT * FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+WHERE EXTRACT(DAY FROM start_date) = EXTRACT(DAY FROM end_date))
+GROUP BY 2'
+```
+
+| num\_trips | morning\_afternoon |
+|------------|--------------------|
+| 473419     | afternoon          |
+| 430506     | morning            |
+| 77140      | neither            |
+
+For trips that began and ended on the same day, there were 473419 taken in the afternoon, and 430506 taken during the day, and 77140 that began in the morning but ended in the afternoon. Therefore, there are more afternoon trips than morning trips, although the ratio is pretty close to 50:50.
 
 ### Project Questions
 Identify the main questions you'll need to answer to make recommendations (list
@@ -437,14 +487,43 @@ Subscriber type
 Total duration of trip less than some reasonable time
 Workdays only and not holidays and weekends
 
+=======
+- Question 3: What are the top 5 pairs of stations for which mean trip duration is the longest? To prevent outliers, look at only trips \
+that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
 
-- Question 1: 
+  * Answer:
 
-- Question 2: 
+| station\_1                            | station\_2                           | average\_duration |
+|---------------------------------------|--------------------------------------|-------------------|
+| Rengstorff Avenue / California Street | Japantown                            | 10544\.0          |
+| Mezes                                 | Charleston Park/ North Bayshore Area | 9517\.0           |
+| San Antonio Caltrain Station          | Franklin at Maple                    | 9493\.0           |
+| San Jose Civic Center                 | Mountain View Caltrain Station       | 8939\.25          |
+| Paseo de San Antonio                  | Market at 4th                        | 7798\.0           |
 
-- Question 3: 
+  * SQL query: What are the top 5 pairs of stations for which median trip duration is the longest, no including roundtrips? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
+  ```
+  SELECT MIN(start_station_name) station_1, MAX(end_station_name) station_2, AVG(duration_sec) average_duration
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips`
+  WHERE duration_sec BETWEEN 300 AND 10800
+  AND start_station_id != end_station_id
+  GROUP By LEAST(start_station_id, end_station_id ) || '_' || GREATEST(start_station_id, end_station_id
+  ORDER BY average_duration DESC
+  LIMIT 5
+  ```
+- Question 1: Which trips conform to intended behavior?
+  
+- Question 2: Which trips are commuter trips, including the top 5 most popular trips? (New subscribers on these routes get a discount)
 
-- Question 4: 
+- Question 3: Which stations have the most free bikes and during which times? (Taking bikes from here gets a discount)
+
+- Question 4: Which stations have the least amount of free bikes and during which times? (Returning here gets a discount)
+
+- Question 5: What is the average duration of commuter trips?
+
+- Question 6: Customers taking the most popular trips? Become a subscriber for a discount! Because maybe they just tried it once.
+
+- Question 7: Which day of the week has the most and least usage? (discount on certain days)
 
 - ...
 
