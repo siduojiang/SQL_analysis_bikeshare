@@ -140,7 +140,7 @@ SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
 
-The earliest start date and time for a trip is is 2013-08-29 09:08:00 UTC, and the latest end date and time for a trip is 2016-08-31 23:48:00 UTC.
+The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. 
 
 - How many bikes are there?
 
@@ -149,13 +149,13 @@ SELECT COUNT(DISTINCT bike_number)
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
 
-The best guess for the number of bikes is based on the bike ID, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
+The best guess for the number of bikes is based on the bike number, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
 
 
 ### Questions of your own
 - Make up 3 questions and answer them using the Bay Area Bike Share Trips Data.  These questions MUST be different than any of the questions and queries you ran above.
 
-- Question 1: Based on station id and name from the bikeshare_stations table, which start and end stations in the bikeshare_trips table have different names when joined by station id? How many occurrences are there for each distinct difference, and is the mismatch potentially something of concern about the dataset?
+- Question 1: Based on station id and name from the bikeshare_stations table, which start and end stations in the bikeshare_trips table have different names when matched by station id? Are the mismatches between start and end stations different from each other? How many occurrences are there for each distinct difference, and is the mismatch potentially something of concern about the dataset?
 
   * Answer: There are 12 distinct entries where the start station name from the trips table is different than the station name in the station table when joined based on station id. For the end station name, there were also 12 distinct entries, with names and number of occurrences (trips) listed below:
 
@@ -218,8 +218,8 @@ GROUP BY stations.station_id, trips.end_station_name, stations.name
 ORDER BY num_trips DESC
 ```
 
-- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST, where the start and end stations are different? These could signify the majory of weekday commuters.
-  * Answer: First, we note that the times are already local PST based on the table schema (despite the table itself saying UTC). There are 387926, or about 39.4% of total trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data. However, since we are only covering a 4 hour window each day for 5 days (20 hours total versus 168 hours per week), proportionally speaking a large fraction of trips are taken within this window.
+- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST, where the start and end stations are different? Is this a large number of trips? These could signify the majority of weekday commuters.
+  * Answer: First, we note that the times are already local PST based on the table schema (despite the table itself saying UTC). There are 387926 trips, or about 39.4% of total trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data. However, since we are only covering a 4 hour window each day for 5 days (20 hours total versus 168 hours per week), proportionally speaking a large fraction of trips are taken within this window.
   
   * SQL query:
 
@@ -232,9 +232,9 @@ AND (EXTRACT(HOUR FROM start_date) BETWEEN 7 AND 8
 AND start_station_id != end_station_id
 ```
 
-- Question 3: For the two different subscriber types, what percent of trips for each type are intercity (start station and end station are in different cities)?
+- Question 3: For the two different subscriber types, what percent of trips for each type are intercity (start station and end station are in different cities)? Should we specifically consider these trips as potentially not commuter trips during our analysis?
 
-  * Answer: For "Customers", 0.522% of trips are intercity, whereas only 0.087% trips are intercity for "Subscribers", which means Customers take intercity trips 6 times more often than Subscribers. Commuter trips are less likely to be intercity, so this combined with trip duration could help us narrow down which trips are commuter. However, the number of intercity trips represents such a small fraction of total trips that such analysis may not be impactful on the analysis.
+  * Answer: For "Customers", 0.522% of trips are intercity, whereas only 0.087% trips are intercity for "Subscribers", which means Customers take intercity trips 6 times more often than Subscribers. Commuter trips are less likely to be intercity, so this combined with trip duration could help us narrow down which trips are commuter. However, the number of intercity trips represents such a small fraction of total trips that special treatment of such trips may not be impactful on the analysis.
   
   * SQL query:
 
@@ -453,29 +453,28 @@ WHERE r <= 10
 
   * How many trips are in the morning vs in the afternoon?
 
-In this problem, I will define morning hours as between 6am and 12pm, and afternoon hours as between 12pm and 7pm. In order to define morning and afternoon trips, we will consider a trip a morning trip if it begins and ends in the morning of the same day, and an afternoon trip as beginning and ending in the afternoon of the same day. We want to exclude multi-day bike checkouts because we do not know for sure when the bike was actually used during that period. We also exclude trips that say begin in the morning but end in the afternoon of the same day, because that is neither a morning nor afternoon trip (it is more of a just daytime trip). Note that the timestamps are already in PST as defined by the schema.
+In this problem, I will define morning hours as between 6am and 8:59am, and afternoon hours as between 5pm and 7:59pm. In order to define morning and afternoon trips, we will consider a trip a morning trip if it begins in the morning and ends the same day, and an afternoon trip if it begins in the afternoon and ends on the same day. The same day is to exclude multi-day bike checkouts because we do not know for sure when the bike was actually used during that period. Note that the timestamps are already in PST as defined by the schema. We also disregard whether the trip was a roundtrip or if the start/end stations differed.
 
 ```
-bq query --use_legacy_sql=false 'SELECT COUNT(*) num_trips, 
-  CASE WHEN (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 12 
-        AND EXTRACT(HOUR FROM end_date) BETWEEN 6 AND 12) THEN "morning"
-       WHEN (EXTRACT(HOUR FROM start_date) BETWEEN 12 AND 19 
-        AND EXTRACT(HOUR FROM end_date) BETWEEN 12 AND 19) THEN "afternoon"
+bq query --use_legacy_sql=false 'SELECT COUNT(*) num_trips,
+  CASE WHEN EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8 THEN "morning"
+       WHEN EXTRACT(HOUR FROM start_date) BETWEEN 17 AND 19 THEN "afternoon"
        ELSE "neither"
   END morning_afternoon
 FROM
 (SELECT * FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 WHERE EXTRACT(DAY FROM start_date) = EXTRACT(DAY FROM end_date))
-GROUP BY 2'
+GROUP BY 2
+ORDER BY morning_afternoon'
 ```
 
 | num\_trips | morning\_afternoon |
 |------------|--------------------|
-| 473419     | afternoon          |
-| 430506     | morning            |
-| 77140      | neither            |
+| 251468     | afternoon          |
+| 220472     | morning            |
+| 509125     | neither            |
 
-For trips that began and ended on the same day, there were 473419 taken in the afternoon, and 430506 taken during the day, and 77140 that began in the morning but ended in the afternoon. Therefore, there are more afternoon trips than morning trips, although the ratio is pretty close to 50:50.
+For trips that began and ended on the same day, there were 251468 that began during afternoon hours, and 220472 that began during morning hours. 509125 trips began during other hours of the day. Therefore, there are slightly more afternoon trips than morning trips, although the ratio is pretty close to 50:50. For a 6-hour morning afternoon window, almost half of the trips were taken during this time, so that accounts for a disproportionally large number of trips compared to the other hours.
 
 ### Project Questions
 Identify the main questions you'll need to answer to make recommendations (list
@@ -484,12 +483,11 @@ below, add as many questions as you need).
 Start and end stations are different
 Start windows
 Subscriber type
-Total duration of trip less than some reasonable time
+Total duration of trip less than some reasonable time (30mins; more then it's very expensive)
 Workdays only and not holidays and weekends
 
 =======
-- Question 3: What are the top 5 pairs of stations for which mean trip duration is the longest? To prevent outliers, look at only trips \
-that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
+- Question 3: What are the top 5 pairs of stations for which mean trip duration is the longest? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
 
   * Answer:
 
@@ -510,20 +508,25 @@ that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 sec
   GROUP By LEAST(start_station_id, end_station_id ) || '_' || GREATEST(start_station_id, end_station_id
   ORDER BY average_duration DESC
   LIMIT 5
-  ```
-- Question 1: Which trips conform to intended behavior?
+  ```  
+- Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
+
+- Question 1: For the most popular commuter trips, which have the highest number of Customers compared to Subscribers? Become a subscriber for a discount! Because maybe they just tried it once.
+
+- Question 2: Which stations have the most free bikes and during which hours? (Taking bikes from here gets a discount)
+
+- Question 3: Which stations have the least amount of free bikes and during which hours? (Returning here gets a discount)
+
+- Question 4: Which day of the week has the most and least usage? (discount on certain days)
+
+- Question 5: Which bikes see the most usage? (single ride discounts for taking these bikes to reduce overall repair)
+
+- Question 6: What is the average duration of commuter trips?
+
+- Question 7: Which trips conform to intended behavior? As discussed in class, there is a penalty for trips taking more than 30 minutes. Offer discount to individuals that stay within this limit.
   
-- Question 2: Which trips are commuter trips, including the top 5 most popular trips? (New subscribers on these routes get a discount)
+- Question 8: What are the top 5 pairs of stations for which mean trip duration is the longest? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
 
-- Question 3: Which stations have the most free bikes and during which times? (Taking bikes from here gets a discount)
-
-- Question 4: Which stations have the least amount of free bikes and during which times? (Returning here gets a discount)
-
-- Question 5: What is the average duration of commuter trips?
-
-- Question 6: Customers taking the most popular trips? Become a subscriber for a discount! Because maybe they just tried it once.
-
-- Question 7: Which day of the week has the most and least usage? (discount on certain days)
 
 - ...
 
@@ -535,7 +538,20 @@ Answer at least 4 of the questions you identified above You can use either
 BigQuery or the bq command line tool.  Paste your questions, queries and
 answers below.
 
-- Question 1: 
+- Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
+
+  * Answer:  In addition to this being a question we need to answer, the end stations of these trips could correspond to corporate business centers, so it would make sense to tap into this marker further by offering corporate discount at these locations. To narrow down a commuter trip, we use the following criteria:
+  
+  1. Trips should be taken on weekdays between 6am - 8:59am (prime time for leaving for work) or between 5pm - 7:59pm (prime time for leaving from work).  
+  2. Trips should not last longer than 5 minutes, but not more than 30 minutes. Since there is an extra charge for longer durations, this is not sustainable, and customers would likely find another way to commute if they had to ride for more than 30mins each way. 
+  3. Trips should not be counted for holidays
+  4. Trips should start and end at different locations.
+  5. 
+  
+
+  * SQL query:
+
+- Question 1: What are the 5 most popular trips that you would call "commuter trips"? 
   * Answer:
   * SQL query:
 
