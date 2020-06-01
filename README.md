@@ -218,8 +218,8 @@ GROUP BY stations.station_id, trips.end_station_name, stations.name
 ORDER BY num_trips DESC
 ```
 
-- Question 2: How many weekday bikeshare trips begins between 7am and 8:59am, or starts between 4pm and 5:59pm, PST, where the start and end stations are different? Is this a large number of trips? These could signify the majority of weekday commuters.
-  * Answer: First, we note that the times are already local PST based on the table schema (despite the table itself saying UTC). There are 387926 trips, or about 39.4% of total trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data. However, since we are only covering a 4 hour window each day for 5 days (20 hours total versus 168 hours per week), proportionally speaking a large fraction of trips are taken within this window.
+- Question 2: How many weekday bikeshare trips begins between 6am and 8:59am, or starts between 5pm and 7:59pm, PST, where the start and end stations are different? Is this a large number of trips? These could signify the majority of weekday commuters.
+  * Answer: First, we note that the times are already local PST based on the table schema (despite the table itself saying UTC). There are 442842 trips, or about 45% of total trips, that are weekday trips and begin during these timeframes. This is a significantly smaller subsection of the data. However, since we are only covering a 6 hour window each day for 5 days (30 hours total versus 168 hours per week), proportionally speaking a large fraction of trips are taken within this window.
   
   * SQL query:
 
@@ -227,8 +227,8 @@ ORDER BY num_trips DESC
 SELECT COUNT(*)
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
-AND (EXTRACT(HOUR FROM start_date) BETWEEN 7 AND 8
-    OR EXTRACT(HOUR FROM start_date) BETWEEN 16 AND 17)
+AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
+    OR EXTRACT(HOUR FROM start_date) BETWEEN 17 AND 19)
 AND start_station_id != end_station_id
 ```
 
@@ -463,7 +463,7 @@ bq query --use_legacy_sql=false 'SELECT COUNT(*) num_trips,
   END morning_afternoon
 FROM
 (SELECT * FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
-WHERE EXTRACT(DAY FROM start_date) = EXTRACT(DAY FROM end_date))
+WHERE EXTRACT(DATE FROM start_date) = EXTRACT(DATE FROM end_date))
 GROUP BY 2
 ORDER BY morning_afternoon'
 ```
@@ -487,9 +487,497 @@ Total duration of trip less than some reasonable time (30mins; more then it's ve
 Workdays only and not holidays and weekends
 
 =======
-- Question 3: What are the top 5 pairs of stations for which mean trip duration is the longest? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
+- Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
 
-  * Answer:
+- Question 1: What are the 5 most popular end stations from "commuter trips" in the morning commuter hours or most popular start stations from "commuter trips" in the afternoon hours? 
+
+- Question 2: For the most popular commuter trips, which have the highest number of Customers compared to Subscribers?
+
+- Question 3: Which stations have the most free bikes and during which hours?
+
+- Question 4: Which stations have the least amount of free bikes and during which hours? 
+
+- Question 5: Which hours/days of the week has the most and least usage per station?
+
+- Question 6: Which hours/days of the week has the most and least usage overall?
+
+- Question 7: How many trips are under 5 minutes, and what might these trips be?
+
+- Question 8: Which bikes see the least usage?
+
+- Question 9: What is the average duration and standard deviation of the duration of commuter trips? 
+
+- Question 10: How many trips conform to intended behavior of under 30mins? As discussed in class, there is a penalty for trips taking more than 30 minutes. Offer discount to individuals that stay within this limit.
+  
+- Question 11: What are the top 5 pairs of stations for which mean trip duration is the longest? 
+
+### Answers
+
+Answer at least 4 of the questions you identified above You can use either
+BigQuery or the bq command line tool.  Paste your questions, queries and
+answers below.
+
+All questions are answered with BigQuery.
+
+- Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
+
+  * Answer:  In addition to this being a question we need to answer, the end stations of these trips could correspond to corporate business centers, so it would make sense to tap into this marker further by offering corporate discount at these locations. To narrow down a commuter trip, we use the following criteria:
+  
+  1. Trips should be taken on weekdays between 6am - 8:59am (prime time for leaving for work) or between 5pm - 7:59pm (prime time for leaving from work).  
+  2. Trips should last longer than 5 minutes, but not more than 30 minutes. Since there is an extra charge for longer durations, this is not sustainable, and customers would likely find another way to commute if they had to ride for more than 30mins each way. Trips shorter than 5 minutes means the individual wants to visit a very close location, and it might make more sense to walk rather than routinely pay for a bike service that is rarely used. Evidence suggests that 20 minutes is the [average time](https://bikeleague.org/content/new-census-data-bike-commuting)
+  3. Trips should not be counted for public U.S. holidays
+  4. Trips should start and end at different locations
+  5. A station pair order matters. For example, a trip at 8am from station A to station B does NOT count as the same station pair as a trip at 6pm from station B to station A. We count commuter trips starting and ending at different locations as distinct.
+  
+  In order to identify which days are holidays, I've created a 'holidays.csv' table, and imported it into BigQuery as a table called holidays:
+  
+  ```SELECT * FROM `round-ring-276215.bikeshare_views.holidays` 
+     ORDER BY time
+  ```
+  The output table is the following like the following:
+  
+| time         | day                           |
+|--------------|-------------------------------|
+| 2013\-01\-01 | New Year's Day                |
+| 2013\-01\-21 | Martin Luther King Jr\. Day   |
+| 2013\-02\-18 | Washington's Birthday         |
+| 2013\-05\-27 | Memorial Day                  |
+| 2013\-07\-04 | Independence Day              |
+| 2013\-09\-02 | Labor Day                     |
+| 2013\-10\-14 | Columbus Day                  |
+| 2013\-11\-11 | Veterans Day                  |
+| 2013\-11\-28 | Thanksgiving                  |
+| 2013\-12\-25 | Christmas Day                 |
+| 2014\-01\-01 | New Year's Day                |
+| 2014\-01\-20 | Martin Luther King Jr\. Day   |
+| 2014\-02\-17 | Washington's Birthday         |
+| 2014\-05\-26 | Memorial Day                  |
+| 2014\-07\-04 | Independence Day              |
+| 2014\-09\-01 | Labor Day                     |
+| 2014\-10\-13 | Columbus Day                  |
+| 2014\-11\-11 | Veterans Day                  |
+| 2014\-11\-27 | Thanksgiving                  |
+| 2014\-12\-25 | Christmas Day                 |
+| 2015\-01\-01 | New Year's Day                |
+| 2015\-01\-19 | Martin Luther King Jr\. Day   |
+| 2015\-02\-16 | Washington's Birthday         |
+| 2015\-05\-25 | Memorial Day                  |
+| 2015\-07\-03 | Independence Day \(Observed\) |
+| 2015\-07\-04 | Independence Day              |
+| 2015\-09\-07 | Labor Day                     |
+| 2015\-10\-12 | Columbus Day                  |
+| 2015\-11\-11 | Veterans Day                  |
+| 2015\-11\-26 | Thanksgiving                  |
+| 2015\-12\-25 | Christmas Day                 |
+| 2016\-01\-01 | New Year's Day                |
+| 2016\-01\-18 | Martin Luther King Jr\. Day   |
+| 2016\-02\-15 | Washington's Birthday         |
+| 2016\-05\-30 | Memorial Day                  |
+| 2016\-07\-04 | Independence Day              |
+| 2016\-09\-05 | Labor Day                     |
+| 2016\-10\-10 | Columbus Day                  |
+| 2016\-11\-11 | Veterans Day                  |
+| 2016\-11\-24 | Thanksgiving                  |
+| 2016\-12\-25 | Christmas Day                 |
+| 2016\-12\-26 | Christmas Day \(Observed\)    |
+
+The top 5 most popular commuter trips are below:
+
+| start\_station\_name                       | end\_station\_name                              | num\_trips |
+|--------------------------------------------|-------------------------------------------------|------------|
+| Harry Bridges Plaza \(Ferry Building\)     | 2nd at Townsend                                 | 788        |
+| San Francisco Caltrain \(Townsend at 4th\) | Harry Bridges Plaza \(Ferry Building\)          | 676        |
+| San Francisco Caltrain \(Townsend at 4th\) | Temporary Transbay Terminal \(Howard at Beale\) | 596        |
+| Steuart at Market                          | San Francisco Caltrain \(Townsend at 4th\)      | 547        |
+| San Francisco Caltrain \(Townsend at 4th\) | Steuart at Market                               | 533        |
+
+
+  * SQL query: 
+  
+  ```
+  WITH commuter_trips AS 
+    (SELECT * FROM
+       #LEFT JOIN with the holidays table to capture all entries in the bikeshare_trips table
+       #Keep only places the holidays table IS NULL (non-holidays)
+      (SELECT trips.* FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+        LEFT JOIN `round-ring-276215.bikeshare_views.holidays` holidays
+        ON holidays.time =  CAST(trips.start_date AS DATE)
+        WHERE holidays.time IS NULL) trips_non_holiday
+      WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
+        AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
+          OR EXTRACT(HOUR FROM start_date) BETWEEN 17 AND 19)
+        AND duration_sec BETWEEN (60*5) AND (60*30)
+        AND start_station_id != end_station_id)        
+    SELECT stations_1.name start_name, stations_2.name end_name, COUNT(*) num_trips 
+      FROM commuter_trips 
+      JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_1
+      ON commuter_trips.start_station_id = stations_1.station_id 
+      JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_2
+      ON commuter_trips.end_station_id = stations_2.station_id 
+    GROUP BY start_name, end_name
+    ORDER BY num_trips DESC
+    LIMIT 5
+  ```
+
+In order to save query time in the future, we also create a new view for commuter trips as defined above:
+
+```
+CREATE VIEW `round-ring-276215.bikeshare_views.commuter_trips` AS
+(SELECT trips_non_holiday.*, stations_1.name official_start_station_name, stations_2.name official_end_station_name FROM
+
+   #LEFT JOIN with the holidays table to capture all entries in the bikeshare_trips table
+   #Keep only places the holidays table IS NULL (non-holidays)
+
+  (SELECT trips.* FROM `bigquery-public-data.san_francisco.bikeshare_trips` trips
+    LEFT JOIN `round-ring-276215.bikeshare_views.holidays` holidays
+    ON holidays.time =  CAST(trips.start_date AS DATE)
+    WHERE holidays.time IS NULL) trips_non_holiday
+    
+  #JOIN to the stations table twice in order to get the official start and end station names
+  #We discovered some name discrepancies in part 1
+  
+  JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_1
+    ON trips_non_holiday.start_station_id = stations_1.station_id 
+  JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_2
+    ON trips_non_holiday.end_station_id = stations_2.station_id   
+  WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
+    AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
+      OR EXTRACT(HOUR FROM start_date) BETWEEN 17 AND 19)
+    AND duration_sec BETWEEN (60*5) AND (60*30)
+    AND start_station_id != end_station_id)
+```
+
+- Question 1: What are the 5 most popular end stations from "commuter trips" in the morning commuter hours or most popular start stations from "commuter trips" in the afternoon hours?
+  * Answer: In order to consider where we advertise for a corporate discount, we should narrow the query from the first question down further to consider only areas with high concentration of corporate offices. We expect that the highly used end stations of commuter trips in the morning, and highly used beginning stations in the afternoon, are also areas of high concentration for corporate offices. As a result, we also find the top 5 stations that fit this criteria by considering top used start end stations in the morning commuter trips, and top used start stations in the evening commuter trips:
+  
+| wanted\_station                                 | counts |
+|-------------------------------------------------|--------|
+| San Francisco Caltrain \(Townsend at 4th\)      | 86085  |
+| San Francisco Caltrain 2 \(330 Townsend\)       | 54621  |
+| Harry Bridges Plaza \(Ferry Building\)          | 36419  |
+| Temporary Transbay Terminal \(Howard at Beale\) | 35985  |
+| 2nd at Townsend                                 | 33107  |
+
+As a result, it appears that the San Francisco Caltrain stations are great locations to advertise corporate offers. It may be that individuals drop off their bikes at this location in order to take the train, or pick up bikes from these locations after taking the train. 
+  
+  * SQL query:
+  
+  ```
+  SELECT wanted_station, COUNT(*) counts FROM
+    (SELECT official_start_station_name wanted_station FROM `round-ring-276215.bikeshare_views.commuter_trips` 
+     UNION ALL
+     SELECT official_end_station_name wanted_station FROM `round-ring-276215.bikeshare_views.commuter_trips`)
+  GROUP BY wanted_station
+  ORDER BY counts DESC
+  LIMIT 5
+  ```
+
+- Question 2: For the most popular commuter trips, which have the highest number of Customers compared to Subscribers? 
+  * Answer: For Customers (non-subscribers) who we consider to be commuting, it would be worthwhile to offer these individuals to join as Subscribers. This is because it is possible that these customers simply tried out the service once, and got too busy to consider the service again. We can prompt them with an advertise to join with an discounted annual membership for the first year/month. Ideally, we would track these individuals and provide offers only to these individuals. This question helps us determine on which routes we should look for such individuals. The results are below:
+  
+  
+| start\_name                            | end\_name                              | num\_trips |
+|----------------------------------------|----------------------------------------|------------|
+| Harry Bridges Plaza \(Ferry Building\) | Embarcadero at Sansome                 | 316        |
+| Embarcadero at Sansome                 | Harry Bridges Plaza \(Ferry Building\) | 176        |
+| Embarcadero at Sansome                 | 2nd at Townsend                        | 128        |
+| Embarcadero at Sansome                 | Steuart at Market                      | 127        |
+| Harry Bridges Plaza \(Ferry Building\) | 2nd at Townsend                        | 113        |
+
+It looks like Embarcadero at Sansome is a station where commuters tend to ride only once. It would be worthwhile to target these individual for a discounted annual membership.
+
+  * SQL query:
+  
+  ```
+  SELECT stations_1.name start_name, stations_2.name end_name, COUNT(*) num_trips 
+  FROM `round-ring-276215.bikeshare_views.commuter_trips` commuter_trips
+  JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_1
+    ON commuter_trips.start_station_id = stations_1.station_id 
+  JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations_2
+    ON commuter_trips.end_station_id = stations_2.station_id 
+  WHERE subscriber_type = 'Customer'
+  GROUP BY start_name, end_name
+  ORDER BY num_trips DESC
+  LIMIT 5
+  ```
+
+- Question 3: Which stations have the most free bikes and during which hours? (Taking bikes from here gets a discount)
+  * Answer: For stations where there are lots of bikes available during certain hours, it would be worthwhile to offer discounts for individual single rides at these locations during these times. This would allow bikes to clear up from these stations, and also potentially land somewhere where there is a bike deficit. We also want to avoid full bike racks (cannot dock a bike), so this would help alleviate that. We will take the average number of free bikes available at each station averaged based on the hour.
+  
+| station\_name                             | hour | average\_num\_bikes\_available |
+|-------------------------------------------|------|--------------------------------|
+| 5th St at Folsom St                       | 19   | 20\.62                         |
+| 5th St at Folsom St                       | 0    | 20\.1                          |
+| 5th St at Folsom St                       | 18   | 20\.07                         |
+| 5th St at Folsom St                       | 2    | 20\.04                         |
+| 5th St at Folsom St                       | 5    | 20\.0                          |
+| 5th St at Folsom St                       | 1    | 20\.0                          |
+| 5th St at Folsom St                       | 4    | 19\.96                         |
+| 5th St at Folsom St                       | 3    | 19\.93                         |
+| 5th St at Folsom St                       | 23   | 19\.58                         |
+| 5th St at Folsom St                       | 22   | 19\.43                         |
+| 5th St at Folsom St                       | 21   | 19\.36                         |
+| 5th St at Folsom St                       | 20   | 19\.31                         |
+| 5th St at Folsom St                       | 17   | 18\.54                         |
+| 5th St at Folsom St                       | 6    | 18\.04                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 18   | 16\.22                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 19   | 16\.17                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 20   | 16\.02                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 21   | 15\.97                         |
+| San Francisco Caltrain 2 \(330 Townsend\) | 6    | 15\.88                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 22   | 15\.81                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 0    | 15\.73                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 1    | 15\.73                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 23   | 15\.73                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 2    | 15\.72                         |
+| Harry Bridges Plaza \(Ferry Building\)    | 5    | 15\.71                         |
+
+It would appear that 2 stations, 5th St at Folsom St and Harry Bridges Plaza, dominate in terms of the number of bikes available. Surprisingly, for 5th St at Folsom St, bikes are available at even non-odd hours, such as 6pm and 7pm, are both in the top 3 in terms of available bikes. It would be worthwhile to offer discounts to individuals who can checkout bikes during these hours from these stations in order to keep them moving.
+  
+  * SQL query:
+  
+  ```
+  SELECT stations.name station_name, EXTRACT(HOUR FROM status.time) hour, AVG(status.bikes_available) average_num_bikes_available
+  FROM `bigquery-public-data.san_francisco.bikeshare_status` status
+  JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations
+    ON status.station_id = stations.station_id 
+  GROUP BY station_name, hour
+  ORDER BY average_num_bikes_available DESC
+  LIMIT 25
+  ```
+  
+- Question 4: Which stations have the least amount of free bikes and during which hours? 
+  * Answer: Similar to question 3, we want to find the most empty bike racks, and offer a discount to those who return bikes to these locations during the hours where the racks are empty. We want to avoid empty bike racks (cannot checkout a bike), so this would help alleviate that.
+
+| station\_name                    | hour | average\_num\_bikes\_available |
+|----------------------------------|------|--------------------------------|
+| Cyril Magnin St at Ellis St      | 11   | 3\.59                          |
+| Cyril Magnin St at Ellis St      | 10   | 3\.66                          |
+| Cyril Magnin St at Ellis St      | 12   | 3\.79                          |
+| Cyril Magnin St at Ellis St      | 9    | 3\.85                          |
+| Cyril Magnin St at Ellis St      | 18   | 3\.89                          |
+| Cyril Magnin St at Ellis St      | 19   | 3\.92                          |
+| Castro Street and El Camino Real | 18   | 3\.93                          |
+| Broadway St at Battery St        | 18   | 4\.01                          |
+| Castro Street and El Camino Real | 19   | 4\.01                          |
+| Cyril Magnin St at Ellis St      | 17   | 4\.06                          |
+| Commercial at Montgomery         | 18   | 4\.1                           |
+| Castro Street and El Camino Real | 20   | 4\.19                          |
+| Commercial at Montgomery         | 2    | 4\.19                          |
+| Commercial at Montgomery         | 3    | 4\.19                          |
+| Commercial at Montgomery         | 0    | 4\.2                           |
+| Commercial at Montgomery         | 1    | 4\.2                           |
+| Cyril Magnin St at Ellis St      | 8    | 4\.21                          |
+| Commercial at Montgomery         | 19   | 4\.21                          |
+| Cyril Magnin St at Ellis St      | 14   | 4\.21                          |
+| Castro Street and El Camino Real | 8    | 4\.24                          |
+| Commercial at Montgomery         | 23   | 4\.25                          |
+| Commercial at Montgomery         | 4    | 4\.25                          |
+| Cyril Magnin St at Ellis St      | 16   | 4\.27                          |
+| Castro Street and El Camino Real | 21   | 4\.27                          |
+| Castro Street and El Camino Real | 7    | 4\.27                          |
+
+Based on this data, Cyril Magnin St at Ellis St lacks bikes between 9am - 12an, and at 6pm - 7pm. As a result, offering a discount to dock bikes from another location here would be beneficial.
+  
+  * SQL query:
+  
+  ```
+  SELECT stations.name station_name, EXTRACT(HOUR FROM status.time) hour, AVG(status.bikes_available) average_num_bikes_available
+  FROM `bigquery-public-data.san_francisco.bikeshare_status` status
+  JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations
+    ON status.station_id = stations.station_id 
+  GROUP BY station_name, hour
+  ORDER BY average_num_bikes_available
+  LIMIT 25
+  ```
+  
+- Question 5: Which hours/days of the week has the most and least usage per station?
+  * Answer: Looking at the dataset in a different way, we can also offer discounts on particular days in order to try to increase ridership on days where ridership is low (in other words, many bikes are docked rather than being used). This would be dependent on the station itself, and could be a general marketing scheme to everyone. For example, we might want to offer individuals who have never tried to service before to get a free ride during a particular day within a particular window just to test out the service. We would like to know which windows are least busy.
+  
+  * More specifically, let's use a rolling window of 3 hours for each day, and find what the total ridership is during these hours of each day, and find the lowest. This way, we can offer ads such as: For first time riders, get a free ride on Mondays between 3pm and 6pm. Note that in order to get the best turnout, we likely want to choose reasonable hours (6am and 8pm) rather than odd hours (such as 2am - 5am). 
+  
+  * The results can be interpreted as the following: On Fridays (day_week = 6) between 7pm and 10pm, there are on average 28.29 bikes parked at 5th St at Folsom St. For similar 3-hour windows on Saturday, such as 8pm - 11pm, and 6pm - 9pm, 5th St at Folsom St is heavily packed with bikes. Similarly, on Saturday 6am-9am (along with other 3-hour windows beginning at 7, 8, and 9 am, there are lots of bikes at 5th St at Folsom St. A great campaign could be that customers who checkout a bike at 5th St at Folsom St for the first time during 6pm-9pm Fridays or 8am-11am on Saturdays get their first ride free.
+  
+| station\_name       | day\_week | date\_hour | rolling\_avg\_3 |
+|---------------------|-----------|------------|-----------------|
+| 5th St at Folsom St | 6         | 19         | 28\.29          |
+| 5th St at Folsom St | 6         | 20         | 27\.69          |
+| 5th St at Folsom St | 7         | 6          | 25\.69          |
+| 5th St at Folsom St | 6         | 18         | 25\.16          |
+| 5th St at Folsom St | 7         | 7          | 23\.53          |
+| 5th St at Folsom St | 6         | 17         | 22\.62          |
+| 5th St at Folsom St | 7         | 8          | 22\.27          |
+| 5th St at Folsom St | 5         | 17         | 22\.04          |
+| 5th St at Folsom St | 7         | 9          | 22\.02          |
+| 5th St at Folsom St | 5         | 18         | 21\.63          |
+| 5th St at Folsom St | 7         | 10         | 21\.51          |
+| 5th St at Folsom St | 1         | 16         | 21\.0           |
+| 5th St at Folsom St | 1         | 18         | 21\.0           |
+| 5th St at Folsom St | 1         | 15         | 21\.0           |
+| 5th St at Folsom St | 1         | 17         | 21\.0           |
+| 5th St at Folsom St | 1         | 14         | 21\.0           |
+| 5th St at Folsom St | 1         | 19         | 20\.93          |
+| 5th St at Folsom St | 7         | 11         | 20\.75          |
+| 5th St at Folsom St | 5         | 19         | 20\.73          |
+| 5th St at Folsom St | 1         | 13         | 20\.69          |
+
+  * SQL query:
+
+  ```
+    SELECT station_name, day_week, date_hour, ROUND(AVG(avg_avail_bikes) OVER (ORDER BY station_name, day_week, date_hour ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING), 2) rolling_avg_3
+    FROM (
+        SELECT stations.name station_name, EXTRACT(DAYOFWEEK FROM time) day_week, EXTRACT(HOUR FROM time) date_hour, AVG(bikes_available) avg_avail_bikes
+        FROM `bigquery-public-data.san_francisco.bikeshare_status` status
+        JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations
+        ON status.station_id = stations.station_id 
+        GROUP BY 1, 2, 3
+        ORDER BY 1, 2, 3)
+    WHERE date_hour BETWEEN 6 AND 20
+    ORDER BY rolling_avg_3 DESC
+    LIMIT 20
+  ```
+
+- Question 6: Which hours/days of the week has the most and least usage overall?
+
+  * Answer: The answer is the same above, except we now do not group based on the station ID.
+  
+| day\_week | date\_hour | rolling\_avg\_3 |
+|-----------|------------|-----------------|
+| 7         | 6          | 8\.41           |
+| 6         | 20         | 8\.4            |
+| 7         | 7          | 8\.38           |
+| 1         | 6          | 8\.38           |
+| 1         | 7          | 8\.35           |
+| 7         | 20         | 8\.34           |
+| 7         | 8          | 8\.34           |
+| 6         | 19         | 8\.33           |
+| 7         | 19         | 8\.31           |
+| 1         | 8          | 8\.31           |
+| 7         | 9          | 8\.29           |
+| 1         | 19         | 8\.29           |
+| 7         | 18         | 8\.28           |
+| 5         | 20         | 8\.28           |
+| 5         | 19         | 8\.28           |
+| 1         | 18         | 8\.26           |
+| 1         | 9          | 8\.26           |
+| 7         | 10         | 8\.23           |
+| 4         | 19         | 8\.23           |
+| 7         | 17         | 8\.22           |
+
+  Based on the results above, if we wanted to offer a discout for everyone and restricting only to day and hours, it would appear that Saturdays from 6am - 9am has on average the most number of free bikes. Closely following that is Friday from 8pm-10pm, and Saturday 7am - 10am.
+  
+  * SQL query:
+  
+  ```
+  SELECT day_week, date_hour, ROUND(AVG(avg_avail_bikes) OVER (ORDER BY day_week, date_hour ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING), 2) rolling_avg_3
+    FROM (
+        SELECT EXTRACT(DAYOFWEEK FROM time) day_week, EXTRACT(HOUR FROM time) date_hour, AVG(bikes_available) avg_avail_bikes
+        FROM `bigquery-public-data.san_francisco.bikeshare_status` status
+        JOIN `bigquery-public-data.san_francisco.bikeshare_stations` stations
+        ON status.station_id = stations.station_id 
+        GROUP BY 1, 2
+        ORDER BY 1, 2)
+    WHERE date_hour BETWEEN 6 AND 20
+    ORDER BY rolling_avg_3 DESC
+    LIMIT 20
+  ```
+- Question 7: How many trips are under 5 minutes, and what might these trips be?  
+
+  * Answer: There are 178692 trips below 5 minutes. Below is a table of the top 10 start locations of these trips. All of these stations are right next to the Lyft HQ. Based on the discussion in class, these trips are most likely tests run by the Lyft staff, such as testing software of testing bikes. We do not want to consider these since they do not represent actual customer trips.
+  
+| start\_station\_name                            | num\_trips |
+|-------------------------------------------------|------------|
+| Townsend at 7th                                 | 11300      |
+| San Francisco Caltrain 2 \(330 Townsend\)       | 9534       |
+| 2nd at Folsom                                   | 9015       |
+| Market at Sansome                               | 8135       |
+| Temporary Transbay Terminal \(Howard at Beale\) | 6623       |
+| 2nd at South Park                               | 6548       |
+| Steuart at Market                               | 6297       |
+| Beale at Market                                 | 5891       |
+| San Francisco Caltrain \(Townsend at 4th\)      | 5674       |
+| 2nd at Townsend                                 | 5175       |
+
+  * SQL query:
+  
+  ```
+  SELECT COUNT(*) FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+  WHERE duration_sec < (5 * 60);
+  
+  SELECT start_station_name, COUNT(*) num_trips FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
+    WHERE duration_sec < (5 * 60)
+    GROUP BY 1
+    ORDER BY num_trips DESC
+    LIMIT 10
+  ```
+
+- Question 8: Which bikes see the least usage?
+
+  * Answer: Bikes that are used too often require more maintainence, so we want to try to keep underused bikes moving. This might be the case when for example when a bike in the middle of a rack is never touched because the sides are easier to access, and there are always extra bikes docked. We might considering offering discounts to individuals who take these bikes and use them in order to even out usage. Also, we limit our query to trips that last at least 5 minutes, and no more than 3 hours. To prevent outliers, we look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds)
+  
+| bike\_number | uses |
+|--------------|------|
+| 876          | 4    |
+| 697          | 9    |
+| 34           | 17   |
+| 323          | 18   |
+| 565          | 19   |
+| 460          | 22   |
+| 224          | 22   |
+| 476          | 24   |
+| 316          | 25   |
+| 237          | 34   |
+
+  * SQL query:
+  
+  ```
+  SELECT bike_number, COUNT(*) uses 
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips`
+  WHERE duration_sec BETWEEN (5 * 60) AND (3 * 60 * 60)
+  GROUP BY bike_number
+  ORDER BY uses
+  LIMIT 10
+  ```
+
+- Question 9: What is the average duration, standard deviation, and standard error of the duration of commuter trips? 
+
+  * Answer: Average time: 10.14 minutes, and std is 3.92 minutes. However, since we have so many samples, the standard error is very low. Based on this, we already seem to have very quick turn-around on commuter trips. 
+  
+| ave\_commuter\_mins | std\_commuter\_mins | std\_error            |
+|---------------------|---------------------|-----------------------|
+| 10\.14              | 3\.92               | 0\.0066               |
+
+  * SQL query:
+  
+  ```
+  SELECT ROUND(AVG(duration_sec) / 60, 2) ave_commuter_mins, ROUND(STDDEV(duration_sec) /60, 2) std_commuter_mins, ROUND(STDDEV(duration_sec)/60 / SQRT(COUNT(*)), 5) std_error
+  FROM `round-ring-276215.bikeshare_views.commuter_trips` 
+  ```
+  
+- Question 10: How many trips conform to intended behavior of under 30mins, and how many above?? 
+
+  * Answer: As discussed in class, there is a penalty for trips taking more than 30 minutes. We might consider offering a discount to individuals that stay within this limit. We could even increase the penalty for going above 30 minutes to be even steeper to make up for lost revenue. In the visualization step, we will look at the distribution of trip times. Furthermore, we look at only trips above 5mins and under 3hr to avoid extreme outliers.
+  
+| duration\_group                    | counts |
+|------------------------------------|--------|
+| more\_than\_30min\_less\_than\_3hr | 36763  |
+| more\_than\_5min\_less\_than\_3hr  | 756232 |
+| null                               | 190653 |
+
+  * SQL query:
+  
+  ```
+  SELECT CASE WHEN duration_sec > (30 * 60) AND duration_sec < (3 * 60 * 60) THEN 'more_than_30min_less_than_3hr'
+            WHEN duration_sec <= (30 * 60) AND duration_sec > (5 * 60) THEN 'more_than_5min_less_than_3hr'
+            END duration_group,
+       COUNT(*) counts
+  FROM `bigquery-public-data.san_francisco.bikeshare_trips`
+  GROUP BY 1
+  ```
+  
+- Question 11: What are the top 5 pairs of stations for which mean trip duration is the longest? 
+
+  * Answer: To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds). For pairs of stations, we do not want to consider which direction (namely going from A to B is the same pair as going from B to A). Related to the previous question, we might want to penalize users who greatly go above the rouns.
 
 | station\_1                            | station\_2                           | average\_duration |
 |---------------------------------------|--------------------------------------|-------------------|
@@ -499,7 +987,9 @@ Workdays only and not holidays and weekends
 | San Jose Civic Center                 | Mountain View Caltrain Station       | 8939\.25          |
 | Paseo de San Antonio                  | Market at 4th                        | 7798\.0           |
 
-  * SQL query: What are the top 5 pairs of stations for which median trip duration is the longest, no including roundtrips? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
+
+  * SQL query:
+  
   ```
   SELECT MIN(start_station_name) station_1, MAX(end_station_name) station_2, AVG(duration_sec) average_duration
   FROM `bigquery-public-data.san_francisco.bikeshare_trips`
@@ -508,71 +998,7 @@ Workdays only and not holidays and weekends
   GROUP By LEAST(start_station_id, end_station_id ) || '_' || GREATEST(start_station_id, end_station_id
   ORDER BY average_duration DESC
   LIMIT 5
-  ```  
-- Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
-
-- Question 1: For the most popular commuter trips, which have the highest number of Customers compared to Subscribers? Become a subscriber for a discount! Because maybe they just tried it once.
-
-- Question 2: Which stations have the most free bikes and during which hours? (Taking bikes from here gets a discount)
-
-- Question 3: Which stations have the least amount of free bikes and during which hours? (Returning here gets a discount)
-
-- Question 4: Which day of the week has the most and least usage? (discount on certain days)
-
-- Question 5: Which bikes see the most usage? (single ride discounts for taking these bikes to reduce overall repair)
-
-- Question 6: What is the average duration of commuter trips?
-
-- Question 7: Which trips conform to intended behavior? As discussed in class, there is a penalty for trips taking more than 30 minutes. Offer discount to individuals that stay within this limit.
-  
-- Question 8: What are the top 5 pairs of stations for which mean trip duration is the longest? To prevent outliers, look at only trips that lasted at least 5 minutes (300 seconds) but no more than 3 hours (10800 seconds).
-
-
-- ...
-
-- Question n: 
-
-### Answers
-
-Answer at least 4 of the questions you identified above You can use either
-BigQuery or the bq command line tool.  Paste your questions, queries and
-answers below.
-
-- Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
-
-  * Answer:  In addition to this being a question we need to answer, the end stations of these trips could correspond to corporate business centers, so it would make sense to tap into this marker further by offering corporate discount at these locations. To narrow down a commuter trip, we use the following criteria:
-  
-  1. Trips should be taken on weekdays between 6am - 8:59am (prime time for leaving for work) or between 5pm - 7:59pm (prime time for leaving from work).  
-  2. Trips should not last longer than 5 minutes, but not more than 30 minutes. Since there is an extra charge for longer durations, this is not sustainable, and customers would likely find another way to commute if they had to ride for more than 30mins each way. 
-  3. Trips should not be counted for holidays
-  4. Trips should start and end at different locations.
-  5. 
-  
-
-  * SQL query:
-
-- Question 1: What are the 5 most popular trips that you would call "commuter trips"? 
-  * Answer:
-  * SQL query:
-
-- Question 2:
-  * Answer:
-  * SQL query:
-
-- Question 3:
-  * Answer:
-  * SQL query:
-  
-- Question 4:
-  * Answer:
-  * SQL query:
-  
-- ...
-
-- Question n:
-  * Answer:
-  * SQL query:
-
+  ```
 ---
 
 ## Part 3 - Employ notebooks to synthesize query project results
