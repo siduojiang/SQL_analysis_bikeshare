@@ -523,7 +523,7 @@ All questions are answered with BigQuery.
 
   * Answer:  In addition to this being a question we need to answer, the end stations of these trips could correspond to corporate business centers, so it would make sense to tap into this marker further by offering corporate discount at these locations. To narrow down a commuter trip, we use the following criteria:
   
-  1. Trips should be taken on weekdays between 6am - 8:59am (prime time for leaving for work) or between 5pm - 7:59pm (prime time for leaving from work).  
+  1. Trips should be taken on weekdays between 6am - 9:59am (prime time for leaving for work) or between 4pm - 7:59pm (prime time for leaving from work). The range should cover most of regular commuters, and provides a large enough window to account for individuals with different work hours (for example, younger people tend to work later hours and also arrive later).
   2. Trips should last longer than 5 minutes, but not more than 30 minutes. Since there is an extra charge for longer durations, this is not sustainable, and customers would likely find another way to commute if they had to ride for more than 30mins each way. Trips shorter than 5 minutes means the individual wants to visit a very close location, and it might make more sense to walk rather than routinely pay for a bike service that is rarely used. Evidence suggests that 20 minutes is the [average time](https://bikeleague.org/content/new-census-data-bike-commuting)
   3. Trips should not be counted for public U.S. holidays
   4. Trips should start and end at different locations
@@ -531,10 +531,11 @@ All questions are answered with BigQuery.
   
   In order to identify which days are holidays, I've created a 'holidays.csv' table, and imported it into BigQuery as a table called holidays:
   
-  ```SELECT * FROM `round-ring-276215.bikeshare_views.holidays` 
-     ORDER BY time
   ```
-  The output table is the following like the following:
+  SELECT * FROM `round-ring-276215.bikeshare_views.holidays` 
+  ORDER BY time
+  ```
+  The output table is the following:
   
 | time         | day                           |
 |--------------|-------------------------------|
@@ -583,13 +584,13 @@ All questions are answered with BigQuery.
 
 The top 5 most popular commuter trips are below:
 
-| start\_station\_name                       | end\_station\_name                              | num\_trips |
-|--------------------------------------------|-------------------------------------------------|------------|
-| Harry Bridges Plaza \(Ferry Building\)     | 2nd at Townsend                                 | 788        |
-| San Francisco Caltrain \(Townsend at 4th\) | Harry Bridges Plaza \(Ferry Building\)          | 676        |
-| San Francisco Caltrain \(Townsend at 4th\) | Temporary Transbay Terminal \(Howard at Beale\) | 596        |
-| Steuart at Market                          | San Francisco Caltrain \(Townsend at 4th\)      | 547        |
-| San Francisco Caltrain \(Townsend at 4th\) | Steuart at Market                               | 533        |
+| start\_name                                | end\_name                                  | num\_trips |
+|--------------------------------------------|--------------------------------------------|------------|
+| Harry Bridges Plaza \(Ferry Building\)     | 2nd at Townsend                            | 5458       |
+| 2nd at Townsend                            | Harry Bridges Plaza \(Ferry Building\)     | 5260       |
+| San Francisco Caltrain \(Townsend at 4th\) | Harry Bridges Plaza \(Ferry Building\)     | 5019       |
+| Embarcadero at Folsom                      | San Francisco Caltrain \(Townsend at 4th\) | 4850       |
+| Steuart at Market                          | 2nd at Townsend                            | 4697       |
 
 
   * SQL query: 
@@ -604,8 +605,8 @@ The top 5 most popular commuter trips are below:
         ON holidays.time =  CAST(trips.start_date AS DATE)
         WHERE holidays.time IS NULL) trips_non_holiday
       WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
-        AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
-          OR EXTRACT(HOUR FROM start_date) BETWEEN 17 AND 19)
+        AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 9
+          OR EXTRACT(HOUR FROM start_date) BETWEEN 16 AND 19)
         AND duration_sec BETWEEN (60*5) AND (60*30)
         AND start_station_id != end_station_id)        
     SELECT stations_1.name start_name, stations_2.name end_name, COUNT(*) num_trips 
@@ -1045,8 +1046,6 @@ my_panda_data_frame
   * What are the 5 most popular trips that you would call "commuter trips"? 
   
   * What are your recommendations for offers (justify based on your findings)?
-
-Also stations with least traffic and stations with most bikes ... which stations have the most bikes?
 
 - For any temporary tables (or views) that you created, include the SQL in markdown cells
 
