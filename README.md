@@ -480,12 +480,6 @@ For trips that began and ended on the same day, there were 251468 that began dur
 Identify the main questions you'll need to answer to make recommendations (list
 below, add as many questions as you need).
 
-Start and end stations are different
-Start windows
-Subscriber type
-Total duration of trip less than some reasonable time (30mins; more then it's very expensive)
-Workdays only and not holidays and weekends
-
 =======
 - Question 0: What are the 5 most popular trips that you would call "commuter trips"? 
 
@@ -507,7 +501,7 @@ Workdays only and not holidays and weekends
 
 - Question 9: What is the average duration and standard deviation of the duration of commuter trips? 
 
-- Question 10: How many trips conform to intended behavior of under 30mins? As discussed in class, there is a penalty for trips taking more than 30 minutes. Offer discount to individuals that stay within this limit.
+- Question 10: How many trips conform to intended behavior of under 30mins? As discussed in class, there is a penalty for trips taking more than 30 minutes.
   
 - Question 11: What are the top 5 pairs of stations for which mean trip duration is the longest? 
 
@@ -793,11 +787,7 @@ Based on this data, Cyril Magnin St at Ellis St lacks bikes between 9am - 12an, 
   ```
   
 - Question 5: Which hours/days of the week has the most and least usage per station?
-  * Answer: Looking at the dataset in a different way, we can also offer discounts on particular days in order to try to increase ridership on days where ridership is low (in other words, many bikes are docked rather than being used). This would be dependent on the station itself, and could be a general marketing scheme to everyone. For example, we might want to offer individuals who have never tried to service before to get a free ride during a particular day within a particular window just to test out the service. We would like to know which windows are least busy.
-  
-  * More specifically, let's use a rolling window of 3 hours for each day, and find what the total ridership is during these hours of each day, and find the lowest. This way, we can offer ads such as: For first time riders, get a free ride on Mondays between 3pm and 6pm. Note that in order to get the best turnout, we likely want to choose reasonable hours (6am and 8pm) rather than odd hours (such as 2am - 5am). 
-  
-  * The results can be interpreted as the following: On Fridays (day_week = 6) between 7pm and 10pm, there are on average 28.29 bikes parked at 5th St at Folsom St. For similar 3-hour windows on Saturday, such as 8pm - 11pm, and 6pm - 9pm, 5th St at Folsom St is heavily packed with bikes. Similarly, on Saturday 6am-9am (along with other 3-hour windows beginning at 7, 8, and 9 am, there are lots of bikes at 5th St at Folsom St. A great campaign could be that customers who checkout a bike at 5th St at Folsom St for the first time during 6pm-9pm Fridays or 8am-11am on Saturdays get their first ride free.
+  * Answer: Looking at the dataset in a different way, we can also offer discounts on particular days in order to try to increase ridership on days where ridership is low (in other words, many bikes are docked rather than being used). This would be dependent on the station itself, and could be a general marketing scheme to everyone. For example, we might want to offer individuals who have never tried to service before to get a free ride during a particular day within a particular window just to test out the service. We would like to know which windows are least busy. More specifically, let's use a rolling window of 3 hours for each day, and find what the total ridership is during these hours of each day, and find the lowest. This way, we can offer ads such as: For first time riders, get a free ride on Mondays between 3pm and 6pm. Note that in order to get the best turnout, we likely want to choose reasonable hours (6am and 8pm) rather than odd hours (such as 2am - 5am). 
   
 | station\_name       | day\_week | date\_hour | rolling\_avg\_3 |
 |---------------------|-----------|------------|-----------------|
@@ -821,6 +811,8 @@ Based on this data, Cyril Magnin St at Ellis St lacks bikes between 9am - 12an, 
 | 5th St at Folsom St | 7         | 11         | 20\.75          |
 | 5th St at Folsom St | 5         | 19         | 20\.73          |
 | 5th St at Folsom St | 1         | 13         | 20\.69          |
+
+The results can be interpreted as the following: On Fridays (day_week = 6) between 7pm and 10pm, there are on average 28.29 bikes parked at 5th St at Folsom St. For similar 3-hour windows on Saturday, such as 8pm - 11pm, and 6pm - 9pm, 5th St at Folsom St is heavily packed with bikes. Similarly, on Saturday 6am-9am (along with other 3-hour windows beginning at 7, 8, and 9 am, there are lots of bikes at 5th St at Folsom St. A great campaign could be that customers who checkout a bike at 5th St at Folsom St for the first time during 6pm-9pm Fridays or 8am-11am on Saturdays get their first ride free.
 
   * SQL query:
 
