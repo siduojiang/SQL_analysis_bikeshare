@@ -453,6 +453,8 @@ WHERE r <= 10
 +--------------+  
 ```
 
+We use the bikeshare_trips to find the total number of trips in the dataset, which is 983648.
+
   * What is the earliest start time and latest end time for a trip?
 
   ```
@@ -469,6 +471,9 @@ WHERE r <= 10
 |          2013-08-29 |            09:08:00 |      2016-08-31 |        23:48:00 |
 +---------------------+---------------------+-----------------+-----------------+
 ```
+
+The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. We will go with the table description scheme (that the times are already in PST) as discussed on Slack.
+
   * How many bikes are there?
 
   ```
@@ -483,6 +488,8 @@ WHERE r <= 10
 |       700 |
 +-----------+
 ```
+
+The best guess for the number of bikes is based on the bike number, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
 
 2. New Query (Run using bq and paste your SQL query and answer the question in a sentence, using properly formatted markdown):
 
