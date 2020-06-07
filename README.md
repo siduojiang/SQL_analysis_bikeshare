@@ -127,9 +127,14 @@ Paste your SQL query and answer the question in a sentence.  Be sure you properl
 - What's the size of this dataset? (i.e., how many trips)
 
 ```
-SELECT COUNT(*)
+SELECT COUNT(*) number_of_trips
   FROM `bigquery-public-data.san_francisco.bikeshare_trips`
 ```
+
+| number\_of\_trips |
+|-------------------|
+| 983648            |
+
 
 We use the bikeshare_trips to find the total number of trips in the dataset, which is 983648.
  
@@ -140,14 +145,22 @@ SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
 
-The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. 
+| earliest\_start\_date     | latest\_end\_date         |
+|---------------------------|---------------------------|
+| 2013\-08\-29 09:08:00 UTC | 2016\-08\-31 23:48:00 UTC |
+
+The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. We will go with the table description scheme (that the times are already in PST) as discussed on Slack.
 
 - How many bikes are there?
 
 ```
-SELECT COUNT(DISTINCT bike_number)
+SELECT COUNT(DISTINCT bike_number) num_distinct_bikes
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
+
+| num\_distinct\_bikes |
+|----------------------|
+| 700                  |
 
 The best guess for the number of bikes is based on the bike number, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
 
@@ -224,7 +237,7 @@ ORDER BY num_trips DESC
   * SQL query:
 
 ```
-SELECT COUNT(*)
+SELECT COUNT(*) num_trips
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
 AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
@@ -232,10 +245,19 @@ AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
 AND start_station_id != end_station_id
 ```
 
+| num\_trips |
+|------------|
+| 442842     |
+
 - Question 3: For the two different subscriber types, what percent of trips for each type are intercity (start station and end station are in different cities)? Should we specifically consider these trips as potentially not commuter trips during our analysis?
 
   * Answer: For "Customers", 0.522% of trips are intercity, whereas only 0.087% trips are intercity for "Subscribers", which means Customers take intercity trips 6 times more often than Subscribers. Commuter trips are less likely to be intercity, so this combined with trip duration could help us narrow down which trips are commuter. However, the number of intercity trips represents such a small fraction of total trips that special treatment of such trips may not be impactful on the analysis.
   
+| intercity\_trips\_pct | subscriber\_type |
+|-----------------------|------------------|
+| 0\.522                | Customer         |
+| 0\.087                | Subscriber       |
+
   * SQL query:
 
 ```
