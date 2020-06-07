@@ -145,9 +145,10 @@ SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
 
-| earliest\_start\_date     | latest\_end\_date         |
-|---------------------------|---------------------------|
-| 2013\-08\-29 09:08:00 UTC | 2016\-08\-31 23:48:00 UTC |
+| earliest\_start\_date | earliest\_start\_time | latest\_end\_date | latest\_end\_time |
+|-----------------------|-----------------------|-------------------|-------------------|
+| 2013\-08\-29          | 09:08:00              | 2016\-08\-31      | 23:48:00          |
+
 
 The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. We will go with the table description scheme (that the times are already in PST) as discussed on Slack.
 
@@ -444,22 +445,30 @@ WHERE r <= 10
   bq query --use_legacy_sql=false 'SELECT COUNT(*) dataset_size FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
   ```
 
-| dataset\_size |
-|---------------|
-| 983648        |          
-  
+```
++--------------+
+| dataset_size |
++--------------+
+|       983648 |
++--------------+  
+```
 
   * What is the earliest start time and latest end time for a trip?
 
   ```
-  bq query --use_legacy_sql=false 'SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
-    FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
+  bq query --use_legacy_sql=false 'SELECT EXTRACT(DATE FROM MIN(start_date)) earliest_start_date, 
+        EXTRACT(TIME FROM MIN(start_date)) earliest_start_time, 
+        EXTRACT(DATE FROM MAX(end_date)) latest_end_date,
+        EXTRACT(TIME FROM MAX(end_date)) latest_end_time
+   FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
   ```
-
-| earliest\_start\_date | latest\_end\_date   |
-|-----------------------|---------------------|
-| 2013-08-29 09:08:00   | 2016-08-31 23:48:00 |
-  
+```
++---------------------+---------------------+-----------------+-----------------+
+| earliest_start_date | earliest_start_time | latest_end_date | latest_end_time |
++---------------------+---------------------+-----------------+-----------------+
+|          2013-08-29 |            09:08:00 |      2016-08-31 |        23:48:00 |
++---------------------+---------------------+-----------------+-----------------+
+```
   * How many bikes are there?
 
   ```
@@ -467,9 +476,13 @@ WHERE r <= 10
      FROM `bigquery-public-data.san_francisco.bikeshare_trips`' 
   ```
 
-| num\_bikes |
-|------------|
-| 700        |
+```
++-----------+
+| num_bikes |
++-----------+
+|       700 |
++-----------+
+```
 
 2. New Query (Run using bq and paste your SQL query and answer the question in a sentence, using properly formatted markdown):
 
@@ -490,11 +503,15 @@ GROUP BY 2
 ORDER BY morning_afternoon'
 ```
 
-| num\_trips | morning\_afternoon |
-|------------|--------------------|
-| 251468     | afternoon          |
-| 220472     | morning            |
-| 509125     | neither            |
+```
++-----------+-------------------+
+| num_trips | morning_afternoon |
++-----------+-------------------+
+|    251468 | afternoon         |
+|    220472 | morning           |
+|    509125 | neither           |
++-----------+-------------------+
+```
 
 For trips that began and ended on the same day, there were 251468 that began during afternoon hours, and 220472 that began during morning hours. 509125 trips began during other hours of the day. Therefore, there are slightly more afternoon trips than morning trips, although the ratio is pretty close to 50:50. For a 6-hour morning afternoon window, almost half of the trips were taken during this time, so that accounts for a disproportionally large number of trips compared to the other hours.
 
