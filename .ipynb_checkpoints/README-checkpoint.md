@@ -127,14 +127,9 @@ Paste your SQL query and answer the question in a sentence.  Be sure you properl
 - What's the size of this dataset? (i.e., how many trips)
 
 ```
-SELECT COUNT(*) number_of_trips
+SELECT COUNT(*)
   FROM `bigquery-public-data.san_francisco.bikeshare_trips`
 ```
-
-| number\_of\_trips |
-|-------------------|
-| 983648            |
-
 
 We use the bikeshare_trips to find the total number of trips in the dataset, which is 983648.
  
@@ -145,23 +140,14 @@ SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
 
-| earliest\_start\_date | earliest\_start\_time | latest\_end\_date | latest\_end\_time |
-|-----------------------|-----------------------|-------------------|-------------------|
-| 2013\-08\-29          | 09:08:00              | 2016\-08\-31      | 23:48:00          |
-
-
-The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. We will go with the table description scheme (that the times are already in PST) as discussed on Slack.
+The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. 
 
 - How many bikes are there?
 
 ```
-SELECT COUNT(DISTINCT bike_number) num_distinct_bikes
+SELECT COUNT(DISTINCT bike_number)
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 ```
-
-| num\_distinct\_bikes |
-|----------------------|
-| 700                  |
 
 The best guess for the number of bikes is based on the bike number, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
 
@@ -238,7 +224,7 @@ ORDER BY num_trips DESC
   * SQL query:
 
 ```
-SELECT COUNT(*) num_trips
+SELECT COUNT(*)
   FROM `bigquery-public-data.san_francisco.bikeshare_trips` 
 WHERE EXTRACT(DAYOFWEEK FROM start_date) BETWEEN 2 AND 6
 AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
@@ -246,19 +232,10 @@ AND (EXTRACT(HOUR FROM start_date) BETWEEN 6 AND 8
 AND start_station_id != end_station_id
 ```
 
-| num\_trips |
-|------------|
-| 442842     |
-
 - Question 3: For the two different subscriber types, what percent of trips for each type are intercity (start station and end station are in different cities)? Should we specifically consider these trips as potentially not commuter trips during our analysis?
 
   * Answer: For "Customers", 0.522% of trips are intercity, whereas only 0.087% trips are intercity for "Subscribers", which means Customers take intercity trips 6 times more often than Subscribers. Commuter trips are less likely to be intercity, so this combined with trip duration could help us narrow down which trips are commuter. However, the number of intercity trips represents such a small fraction of total trips that special treatment of such trips may not be impactful on the analysis.
   
-| intercity\_trips\_pct | subscriber\_type |
-|-----------------------|------------------|
-| 0\.522                | Customer         |
-| 0\.087                | Subscriber       |
-
   * SQL query:
 
 ```
@@ -445,35 +422,22 @@ WHERE r <= 10
   bq query --use_legacy_sql=false 'SELECT COUNT(*) dataset_size FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
   ```
 
-```
-+--------------+
-| dataset_size |
-+--------------+
-|       983648 |
-+--------------+  
-```
-
-We use the bikeshare_trips to find the total number of trips in the dataset, which is 983648.
+| dataset\_size |
+|---------------|
+| 983648        |          
+  
 
   * What is the earliest start time and latest end time for a trip?
 
   ```
-  bq query --use_legacy_sql=false 'SELECT EXTRACT(DATE FROM MIN(start_date)) earliest_start_date, 
-        EXTRACT(TIME FROM MIN(start_date)) earliest_start_time, 
-        EXTRACT(DATE FROM MAX(end_date)) latest_end_date,
-        EXTRACT(TIME FROM MAX(end_date)) latest_end_time
-   FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
+  bq query --use_legacy_sql=false 'SELECT MIN(start_date) earliest_start_date, MAX(end_date) latest_end_date
+    FROM `bigquery-public-data.san_francisco.bikeshare_trips`'
   ```
-```
-+---------------------+---------------------+-----------------+-----------------+
-| earliest_start_date | earliest_start_time | latest_end_date | latest_end_time |
-+---------------------+---------------------+-----------------+-----------------+
-|          2013-08-29 |            09:08:00 |      2016-08-31 |        23:48:00 |
-+---------------------+---------------------+-----------------+-----------------+
-```
 
-The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and the latest end date and time for a trip is 2016-08-31 23:48:00 PST. Note that based on the 'bikeshare_trips' scheme description, the time is already in PST, even though the timestamp is marked as UTC. We will go with the table description scheme (that the times are already in PST) as discussed on Slack.
-
+| earliest\_start\_date | latest\_end\_date   |
+|-----------------------|---------------------|
+| 2013-08-29 09:08:00   | 2016-08-31 23:48:00 |
+  
   * How many bikes are there?
 
   ```
@@ -481,15 +445,9 @@ The earliest start date and time for a trip is is 2013-08-29 09:08:00 PST, and t
      FROM `bigquery-public-data.san_francisco.bikeshare_trips`' 
   ```
 
-```
-+-----------+
-| num_bikes |
-+-----------+
-|       700 |
-+-----------+
-```
-
-The best guess for the number of bikes is based on the bike number, where we assume each bike is assigned a different ID. We don't account for retired bikes since we don't have this information, and assume that newly added bike take on a new ID. There are 700 distinct IDs, so we think there are 700 bikes during the time period of this dataset stated above.
+| num\_bikes |
+|------------|
+| 700        |
 
 2. New Query (Run using bq and paste your SQL query and answer the question in a sentence, using properly formatted markdown):
 
@@ -510,15 +468,11 @@ GROUP BY 2
 ORDER BY morning_afternoon'
 ```
 
-```
-+-----------+-------------------+
-| num_trips | morning_afternoon |
-+-----------+-------------------+
-|    251468 | afternoon         |
-|    220472 | morning           |
-|    509125 | neither           |
-+-----------+-------------------+
-```
+| num\_trips | morning\_afternoon |
+|------------|--------------------|
+| 251468     | afternoon          |
+| 220472     | morning            |
+| 509125     | neither            |
 
 For trips that began and ended on the same day, there were 251468 that began during afternoon hours, and 220472 that began during morning hours. 509125 trips began during other hours of the day. Therefore, there are slightly more afternoon trips than morning trips, although the ratio is pretty close to 50:50. For a 6-hour morning afternoon window, almost half of the trips were taken during this time, so that accounts for a disproportionally large number of trips compared to the other hours.
 
